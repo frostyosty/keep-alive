@@ -1,17 +1,64 @@
-name: Keep Supabase Alive
+name: Supabase Organic Traffic Simulator
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
-  workflow_dispatch:        # allows manual trigger
+    - cron: "13 */6 * * *"   # every 6 hours at a non-round minute
+  workflow_dispatch:
 
 jobs:
-  ping:
+  traffic:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Ping Supabase
+      - name: Random startup delay (0–180s)
         run: |
-          curl -X GET \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          DELAY=$((RANDOM % 180))
+          echo "Sleeping $DELAY seconds..."
+          sleep $DELAY
+
+      - name: Light traffic - HTC
+        run: |
+          for i in $(seq 1 $(( (RANDOM % 3) + 1 ))); do
+            sleep $((RANDOM % 4))
+            curl -s -o /dev/null \
+              "${{ secrets.HTC_URL }}/rest/v1/?select=1&noise=$RANDOM" \
+              -H "apikey: ${{ secrets.HTC_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.HTC_ANON_KEY }}"
+          done
+
+      - name: Light traffic - Mealmates
+        run: |
+          for i in $(seq 1 $(( (RANDOM % 3) + 1 ))); do
+            sleep $((RANDOM % 4))
+            curl -s -o /dev/null \
+              "${{ secrets.MEALMATES_URL }}/rest/v1/?select=1&noise=$RANDOM" \
+              -H "apikey: ${{ secrets.MEALMATES_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.MEALMATES_ANON_KEY }}"
+          done
+
+      - name: Weekly burst (Sunday only)
+        run: |
+          DAY=$(date +%u)
+
+          if [ "$DAY" -eq 7 ]; then
+            echo "Running heavier weekly burst..."
+
+            BURST=$(( (RANDOM % 25) + 15 ))  # 15–40 requests
+            echo "Burst count: $BURST"
+
+            for i in $(seq 1 $BURST); do
+              sleep $((RANDOM % 6))
+
+              curl -s -o /dev/null \
+                "${{ secrets.HTC_URL }}/rest/v1/?select=1&burst=$RANDOM" \
+                -H "apikey: ${{ secrets.HTC_ANON_KEY }}" \
+                -H "Authorization: Bearer ${{ secrets.HTC_ANON_KEY }}"
+
+              curl -s -o /dev/null \
+                "${{ secrets.MEALMATES_URL }}/rest/v1/?select=1&burst=$RANDOM" \
+                -H "apikey: ${{ secrets.MEALMATES_ANON_KEY }}" \
+                -H "Authorization: Bearer ${{ secrets.MEALMATES_ANON_KEY }}"
+            done
+          else
+            echo "Not burst day."
+          fi
